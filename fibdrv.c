@@ -7,6 +7,8 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 
+#include "bignum.h"
+
 MODULE_LICENSE("Dual MIT/GPL");
 MODULE_AUTHOR("National Cheng Kung University, Taiwan");
 MODULE_DESCRIPTION("Fibonacci engine driver");
@@ -52,6 +54,8 @@ static ssize_t fib_input_store(struct kobject *kobj,
 {
     int ret;
 
+    bignum_add();
+
     ret = kstrtoint(buf, 10, &debug_fib_input);
     if (ret < 0)
         return ret;
@@ -83,7 +87,7 @@ static ssize_t fib_time_show(struct kobject *kobj,
                              struct kobj_attribute *attr,
                              char *buf)
 {
-    return snprintf(buf, 1, "%d\n", 0);
+    return snprintf(buf, 10, "%d\n", 0);
 }
 
 /* Sysfs attributes cannot be world-writable. */

@@ -1,7 +1,8 @@
 CONFIG_MODULE_SIG = n
-TARGET_MODULE := fibdrv
+TARGET_MODULE := fibdrv2
 
 obj-m := $(TARGET_MODULE).o
+fibdrv2-objs := fibdrv.o bignum.o
 ccflags-y := -std=gnu99 -Wno-declaration-after-statement
 
 KDIR := /lib/modules/$(shell uname -r)/build
