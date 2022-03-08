@@ -23,19 +23,28 @@ MODULE_VERSION("0.1");
 
 static DEFINE_MUTEX(fib_mutex);
 
-static long long fib_sequence(long long k)
+static void fib_sequence(long long k)
 {
-    if (k < 2)
-        return k;
+    // if (k < 2)
+    //    return k;
 
-    long long fk = -1, fk_2 = 0, fk_1 = 1;
+    bignum *fk = bignum_create(BIGNUM_SZ);
+    bignum *fk1 = bignum_create(BIGNUM_SZ);
+    bignum *fk2 = bignum_create(BIGNUM_SZ);
+
+    // base cases
+    fk1->num[0] = 1;
+    fk2->num[0] = 0;
+
     for (int i = 2; i <= k; i++) {
-        fk = fk_2 + fk_1;
-        fk_2 = fk_1;
-        fk_1 = fk;
+        bignum_add(fk, fk1, fk2);
+        bignum_cpy(fk2, fk1);
+        bignum_cpy(fk1, fk);
     }
 
-    return fk;
+    bignum_destroy(fk);
+    bignum_destroy(fk1);
+    bignum_destroy(fk2);
 }
 
 static int debug_fib_input;
@@ -53,8 +62,6 @@ static ssize_t fib_input_store(struct kobject *kobj,
                                size_t count)
 {
     int ret;
-
-    bignum_add();
 
     ret = kstrtoint(buf, 10, &debug_fib_input);
     if (ret < 0)
@@ -75,8 +82,9 @@ static ssize_t fib_output_show(struct kobject *kobj,
                                struct kobj_attribute *attr,
                                char *buf)
 {
-    long long fk = fib_sequence(debug_fib_input);
-    return snprintf(buf, 21, "%lld\n", fk);
+    fib_sequence(debug_fib_input);
+    unsigned long long fk = 123;
+    return snprintf(buf, 21, "%llu\n", fk);
 }
 
 /* Sysfs attributes cannot be world-writable. */
