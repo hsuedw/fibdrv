@@ -33,6 +33,14 @@ int bignum_cpy(bignum *dst, bignum *src)
     return 0;
 }
 
+int bignum_to_string(bignum *bn, char *buf)
+{
+    int j = 0, blk_sz = NUM_SZ << 2;
+    for (int i = bn->sz - 1; i >= 0; --i)
+        j += snprintf(&buf[j], blk_sz, "%08x", bn->num[i]);
+    return j;
+}
+
 void bignum_add(bignum *s, const bignum *a, const bignum *b)
 {
     int carry = 0;
