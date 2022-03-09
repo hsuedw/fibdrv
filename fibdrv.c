@@ -23,10 +23,15 @@ MODULE_VERSION("0.1");
 
 static DEFINE_MUTEX(fib_mutex);
 
-static bignum *fib_sequence(long long k)
+static ssize_t fib_sequence(long long k, char *buf)
 {
-    // if (k < 2)
-    //    return k;
+    ssize_t len;
+    if (k < 2) {
+        bignum *bn = bignum_create(BIGNUM_SZ);
+        bn->num[0] = (NUM_TYPE) k;
+        len = bignum_to_string(bn, buf);
+        return len;
+    }
 
     bignum *fk = bignum_create(BIGNUM_SZ);
     bignum *fk1 = bignum_create(BIGNUM_SZ);
@@ -41,11 +46,13 @@ static bignum *fib_sequence(long long k)
         bignum_cpy(fk2, fk1);
         bignum_cpy(fk1, fk);
     }
+    len = bignum_to_string(fk, buf);
 
+    bignum_destroy(fk);
     bignum_destroy(fk1);
     bignum_destroy(fk2);
 
-    return fk;
+    return len;
 }
 
 static int fib_input;
@@ -83,9 +90,7 @@ static ssize_t fib_output_show(struct kobject *kobj,
                                struct kobj_attribute *attr,
                                char *buf)
 {
-    bignum *fk = fib_sequence(fib_input);
-
-    return bignum_to_string(fk, buf);
+    return fib_sequence(fib_input, buf);
 }
 
 /* Sysfs attributes cannot be world-writable. */

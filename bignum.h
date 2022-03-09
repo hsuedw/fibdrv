@@ -20,7 +20,7 @@ typedef struct _bignum {
     int sign;
 } bignum;
 
-#define BIGNUM_SZ (16)
+#define BIGNUM_SZ (256)
 
 bignum *bignum_create(size_t sz);
 
@@ -28,7 +28,7 @@ void bignum_destroy(bignum *bn);
 
 int bignum_cpy(bignum *dst, bignum *src);
 
-int bignum_to_string(bignum *bn, char *buf);
+ssize_t bignum_to_string(bignum *bn, char *buf);
 
 void bignum_add(bignum *s, const bignum *a, const bignum *b);
 
