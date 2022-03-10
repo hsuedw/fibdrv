@@ -35,4 +35,6 @@ void bignum_add(bignum *s, const bignum *a, const bignum *b);
 
 void bignum_sub(bignum *d, const bignum *a, const bignum *b);
 
+void bignum_lshift(bignum *bn, size_t shift);
+
 #endif /* _BIGNUM_H */

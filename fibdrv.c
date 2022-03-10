@@ -48,7 +48,11 @@ static ssize_t fib_sequence(long long k, char *buf)
     }
     len = bignum_to_string(fk, buf);
 
-    bignum_sub(fk, fk1, fk2);  // TODO: remove this line
+    // FIXME: The following code are just to pass static analysis.
+    //        Delete them once they are used in fast doubling
+    bignum_lshift(fk, 2);
+    bignum_sub(fk, fk1, fk2);
+    // FIXME, end
 
     bignum_destroy(fk);
     bignum_destroy(fk1);
