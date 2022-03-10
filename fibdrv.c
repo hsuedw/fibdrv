@@ -48,6 +48,8 @@ static ssize_t fib_sequence(long long k, char *buf)
     }
     len = bignum_to_string(fk, buf);
 
+    bignum_sub(fk, fk1, fk2);  // TODO: remove this line
+
     bignum_destroy(fk);
     bignum_destroy(fk1);
     bignum_destroy(fk2);

@@ -52,3 +52,20 @@ void bignum_add(bignum *s, const bignum *a, const bignum *b)
 
     return;
 }
+
+// d = a - b
+void bignum_sub(bignum *d, const bignum *a, const bignum *b)
+{
+    // Calculate the two's complement for b.
+    b->num[0] = ~b->num[0];
+    int carry = ((TMP_TYPE) b->num[0] + 1) > MAX_VAL;
+    b->num[0] += 1;
+    for (int i = 1; i < b->sz; ++i) {
+        b->num[i] = ~b->num[i];
+        carry = ((TMP_TYPE) b->num[i] + carry) > MAX_VAL;
+        b->num[i] += carry;
+    }
+
+    // d = a - b = a + b(two's complement)
+    bignum_add(d, a, b);
+}
