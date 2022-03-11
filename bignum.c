@@ -35,9 +35,15 @@ int bignum_cpy(bignum *dst, bignum *src)
 
 ssize_t bignum_to_string(bignum *bn, char *buf)
 {
-    ssize_t j = 0, blk_sz = NUM_SZ << 2;
+    ssize_t s_len = BIGNUM_SZ * sizeof(NUM_TYPE) * 2 + 1;
+    ssize_t j = 0, blk_sz = sizeof(NUM_TYPE) * 2 + 1;
+    char *s = (char *) kmalloc(s_len, GFP_KERNEL);
+
     for (int i = bn->sz - 1; i >= 0; --i)
-        j += snprintf(&buf[j], blk_sz, "%08X", bn->num[i]);
+        j += snprintf(s + j, blk_sz, "%08X", bn->num[i]);
+    j = snprintf(buf, s_len + 1, "%s\n", s);
+    kfree(s);
+
     return j;
 }
 
@@ -100,14 +106,15 @@ static void bn_mult_add(bignum *p, int offset, TMP_TYPE x)
 void bignum_mult(bignum *p, const bignum *a, const bignum *b)
 {
     // >> debug
-    printk("1. a: %08x %08x %08x %08x %08x %08x %08x %08x", a->num[7],
-           a->num[6], a->num[5], a->num[4], a->num[3], a->num[2], a->num[1],
-           a->num[0]);
-    printk("1. b: %08x %08x %08x %08x %08x %08x %08x %08x", b->num[7],
-           b->num[6], b->num[5], b->num[4], b->num[3], b->num[2], b->num[1],
-           b->num[0]);
-    printk("1. p %08x %08x %08x %08x %08x %08x %08x %08x", p->num[7], p->num[6],
-           p->num[5], p->num[4], p->num[3], p->num[2], p->num[1], p->num[0]);
+    // printk("1. a: %08x %08x %08x %08x %08x %08x %08x %08x", a->num[7],
+    //       a->num[6], a->num[5], a->num[4], a->num[3], a->num[2], a->num[1],
+    //       a->num[0]);
+    // printk("1. b: %08x %08x %08x %08x %08x %08x %08x %08x", b->num[7],
+    //       b->num[6], b->num[5], b->num[4], b->num[3], b->num[2], b->num[1],
+    //       b->num[0]);
+    // printk("1. p %08x %08x %08x %08x %08x %08x %08x %08x", p->num[7],
+    // p->num[6],
+    //       p->num[5], p->num[4], p->num[3], p->num[2], p->num[1], p->num[0]);
     // << debug
 
     for (int i = 0; i < a->sz; ++i)
@@ -117,13 +124,14 @@ void bignum_mult(bignum *p, const bignum *a, const bignum *b)
         }
 
     // >> debug
-    printk("2. a: %08x %08x %08x %08x %08x %08x %08x %08x", a->num[7],
-           a->num[6], a->num[5], a->num[4], a->num[3], a->num[2], a->num[1],
-           a->num[0]);
-    printk("2. b: %08x %08x %08x %08x %08x %08x %08x %08x", b->num[7],
-           b->num[6], b->num[5], b->num[4], b->num[3], b->num[2], b->num[1],
-           b->num[0]);
-    printk("2. p %08x %08x %08x %08x %08x %08x %08x %08x", p->num[7], p->num[6],
-           p->num[5], p->num[4], p->num[3], p->num[2], p->num[1], p->num[0]);
+    // printk("2. a: %08x %08x %08x %08x %08x %08x %08x %08x", a->num[7],
+    //       a->num[6], a->num[5], a->num[4], a->num[3], a->num[2], a->num[1],
+    //       a->num[0]);
+    // printk("2. b: %08x %08x %08x %08x %08x %08x %08x %08x", b->num[7],
+    //       b->num[6], b->num[5], b->num[4], b->num[3], b->num[2], b->num[1],
+    //       b->num[0]);
+    // printk("2. p %08x %08x %08x %08x %08x %08x %08x %08x", p->num[7],
+    // p->num[6],
+    //       p->num[5], p->num[4], p->num[3], p->num[2], p->num[1], p->num[0]);
     // << debug
 }
