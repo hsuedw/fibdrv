@@ -51,7 +51,47 @@ static ssize_t fib_sequence(long long k, char *buf)
     // FIXME: The following code are just to pass static analysis.
     //        Delete them once they are used in fast doubling
     bignum_lshift(fk, 2);
+
+    fk->num[0] = 0;
+    fk->num[1] = 0;
+    fk->num[2] = 0;
+    fk->num[3] = 0;
+    fk1->num[0] = 0xfa9946c1;
+    fk1->num[1] = 0x55b0bdd8;
+    fk1->num[2] = 0x00000007;
+    fk1->num[3] = 0x00000000;
+    fk2->num[0] = 0xcafb7902;
+    fk2->num[1] = 0xde2ab8ce;
+    fk2->num[2] = 0x0000000b;
+    fk2->num[3] = 0x00000000;
     bignum_sub(fk, fk1, fk2);
+
+    fk->num[0] = 0;
+    fk->num[1] = 0;
+    fk->num[2] = 0;
+    fk->num[3] = 0;
+    fk->num[4] = 0;
+    fk->num[5] = 0;
+    fk->num[6] = 0;
+    fk->num[7] = 0;
+    fk1->num[0] = 0xcafb7902;
+    fk1->num[1] = 0xde2ab8ce;
+    fk1->num[2] = 0xb;
+    fk1->num[3] = 0x0;
+    fk1->num[4] = 0x0;
+    fk1->num[5] = 0x0;
+    fk1->num[6] = 0x0;
+    fk1->num[7] = 0x0;
+
+    fk2->num[0] = 0xc594bfc3;
+    fk2->num[1] = 0x33db76a7;
+    fk2->num[2] = 0x13;
+    fk2->num[3] = 0x0;
+    fk2->num[4] = 0x0;
+    fk2->num[5] = 0x0;
+    fk2->num[6] = 0x0;
+    fk2->num[7] = 0x0;
+    bignum_mult(fk, fk1, fk2);
     // FIXME, end
 
     bignum_destroy(fk);

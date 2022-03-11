@@ -21,7 +21,7 @@ typedef struct _bignum {
 } bignum;
 
 //#define BIGNUM_SZ (256)
-#define BIGNUM_SZ (4)
+#define BIGNUM_SZ (8)
 
 bignum *bignum_create(size_t sz);
 
@@ -36,5 +36,7 @@ void bignum_add(bignum *s, const bignum *a, const bignum *b);
 void bignum_sub(bignum *d, const bignum *a, const bignum *b);
 
 void bignum_lshift(bignum *bn, size_t shift);
+
+void bignum_mult(bignum *p, const bignum *a, const bignum *b);
 
 #endif /* _BIGNUM_H */
