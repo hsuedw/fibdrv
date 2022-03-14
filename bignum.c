@@ -24,7 +24,7 @@ void bignum_destroy(bignum *bn)
     kfree(bn);
 }
 
-int bignum_cpy(bignum *dst, bignum *src)
+int bignum_cpy(bignum *dst, const bignum *src)
 {
     if (dst == NULL || src == NULL)
         return -1;
@@ -50,6 +50,8 @@ ssize_t bignum_to_string(bignum *bn, char *buf)
 // s = a + b
 void bignum_add(bignum *s, const bignum *a, const bignum *b)
 {
+    memset(s->num, 0, s->sz * sizeof(NUM_TYPE));
+
     int carry = 0;
     for (int i = 0; i < s->sz; ++i) {
         TMP_TYPE tmp = (TMP_TYPE) a->num[i] + b->num[i] + carry;
@@ -63,18 +65,23 @@ void bignum_add(bignum *s, const bignum *a, const bignum *b)
 // d = a - b
 void bignum_sub(bignum *d, const bignum *a, const bignum *b)
 {
+    memset(d->num, 0, d->sz * sizeof(NUM_TYPE));
+
+    bignum *tmp = bignum_create(BIGNUM_SZ);
+    bignum_cpy(tmp, b);
+
     // Calculate the two's complement for b.
-    b->num[0] = ~b->num[0];
-    int carry = ((TMP_TYPE) b->num[0] + 1) > MAX_VAL;
-    b->num[0] += 1;
-    for (int i = 1; i < b->sz; ++i) {
-        b->num[i] = ~b->num[i];
-        carry = ((TMP_TYPE) b->num[i] + carry) > MAX_VAL;
-        b->num[i] += carry;
+    tmp->num[0] = ~tmp->num[0];
+    int carry = ((TMP_TYPE) tmp->num[0] + 1) > MAX_VAL;
+    tmp->num[0] += 1;
+    for (int i = 1; i < tmp->sz; ++i) {
+        tmp->num[i] = ~tmp->num[i];
+        carry = ((TMP_TYPE) tmp->num[i] + carry) > MAX_VAL;
+        tmp->num[i] += carry;
     }
 
     // d = a - b = a + b(two's complement)
-    bignum_add(d, a, b);
+    bignum_add(d, a, tmp);
 }
 
 // bn = bn << shift
@@ -117,6 +124,7 @@ void bignum_mult(bignum *p, const bignum *a, const bignum *b)
     //       p->num[5], p->num[4], p->num[3], p->num[2], p->num[1], p->num[0]);
     // << debug
 
+    memset(p->num, 0, p->sz * sizeof(NUM_TYPE));
     for (int i = 0; i < a->sz; ++i)
         for (int j = 0; j < b->sz; ++j) {
             TMP_TYPE carry = (TMP_TYPE) a->num[i] * b->num[j];
