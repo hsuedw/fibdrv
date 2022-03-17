@@ -167,7 +167,8 @@ static ssize_t fib_time_show(struct kobject *kobj,
                              struct kobj_attribute *attr,
                              char *buf)
 {
-    return snprintf(buf, sizeof(u64) * 2 + 1, "%llu\n", ktime_to_ns(kt));
+    // return snprintf(buf, sizeof(u64) * 2 + 1, "%llu\n", ktime_to_ns(kt));
+    return snprintf(buf, 100, "%llu\n", ktime_to_ns(kt));
 }
 
 /* Sysfs attributes cannot be world-writable. */
