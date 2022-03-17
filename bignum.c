@@ -33,10 +33,10 @@ int bignum_cpy(bignum *dst, const bignum *src)
     return 0;
 }
 
-ssize_t bignum_to_string(bignum *bn, char *buf)
+size_t bignum_to_string(bignum *bn, char *buf)
 {
-    ssize_t s_len = BIGNUM_SZ * sizeof(NUM_TYPE) * 2 + 1;
-    ssize_t j = 0, blk_sz = sizeof(NUM_TYPE) * 2 + 1;
+    size_t s_len = BIGNUM_SZ * sizeof(NUM_TYPE) * 2 + 1;
+    size_t j = 0, blk_sz = sizeof(NUM_TYPE) * 2 + 1;
     char *s = (char *) kmalloc(s_len, GFP_KERNEL);
 
     for (int i = bn->sz - 1; i >= 0; --i)
@@ -52,7 +52,7 @@ void bignum_add(bignum *s, const bignum *a, const bignum *b)
 {
     memset(s->num, 0, s->sz * sizeof(NUM_TYPE));
 
-    int carry = 0;
+    TMP_TYPE carry = 0;
     for (int i = 0; i < s->sz; ++i) {
         TMP_TYPE tmp = (TMP_TYPE) a->num[i] + b->num[i] + carry;
         carry = tmp > MAX_VAL;

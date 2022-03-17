@@ -28,7 +28,7 @@ void bignum_destroy(bignum *bn);
 
 int bignum_cpy(bignum *dst, const bignum *src);
 
-ssize_t bignum_to_string(bignum *bn, char *buf);
+size_t bignum_to_string(bignum *bn, char *buf);
 
 void bignum_add(bignum *s, const bignum *a, const bignum *b);
 

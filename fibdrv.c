@@ -16,12 +16,26 @@ MODULE_VERSION("0.1");
 
 #define DEV_FIBONACCI_NAME "fibonacci"
 
-static DEFINE_MUTEX(fib_mutex);
-
+/* 1: fast doubling, 0: iteration */
 #define FIBONACCI_FAST_DOUBLING (1)
 
+static DEFINE_MUTEX(fib_mutex);
+static NUM_TYPE fib_input;
+static ktime_t kt;
+
+static ssize_t fib_time_cost(ssize_t (*fib_algo)(NUM_TYPE, char *),
+                             NUM_TYPE k,
+                             char *buf)
+{
+    kt = ktime_get();
+    ssize_t buf_len = fib_algo(k, buf);
+    kt = ktime_sub(ktime_get(), kt);
+
+    return buf_len;
+}
+
 #if FIBONACCI_FAST_DOUBLING
-static ssize_t fib_fast_doubling(long long k, char *buf)
+static ssize_t fib_fast_doubling(NUM_TYPE k, char *buf)
 {
     uint64_t h = 0;
     for (uint64_t i = k; i; ++h, i >>= 1)
@@ -72,7 +86,7 @@ static ssize_t fib_fast_doubling(long long k, char *buf)
 }
 
 #else
-static ssize_t fib_sequence(long long k, char *buf)
+static ssize_t fib_sequence(NUM_TYPE k, char *buf)
 {
     ssize_t len;
     if (k < 2) {
@@ -104,8 +118,6 @@ static ssize_t fib_sequence(long long k, char *buf)
     return len;
 }
 #endif
-
-static NUM_TYPE fib_input;
 
 static ssize_t fib_input_show(struct kobject *kobj,
                               struct kobj_attribute *attr,
@@ -141,9 +153,9 @@ static ssize_t fib_output_show(struct kobject *kobj,
                                char *buf)
 {
 #if FIBONACCI_FAST_DOUBLING
-    return fib_fast_doubling(fib_input, buf);
+    return fib_time_cost(fib_fast_doubling, fib_input, buf);
 #else
-    return fib_sequence(fib_input, buf);
+    return fib_time_cost(fib_sequence, fib_input, buf);
 #endif
 }
 
@@ -155,7 +167,7 @@ static ssize_t fib_time_show(struct kobject *kobj,
                              struct kobj_attribute *attr,
                              char *buf)
 {
-    return snprintf(buf, 10, "%d\n", 0);
+    return snprintf(buf, sizeof(u64) * 2 + 1, "%llu\n", ktime_to_ns(kt));
 }
 
 /* Sysfs attributes cannot be world-writable. */
