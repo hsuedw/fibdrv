@@ -20,7 +20,7 @@ typedef struct _bignum {
     int sign;
 } bignum;
 
-#define BIGNUM_SZ (256)
+#define BIGNUM_SZ (500)
 
 bignum *bignum_create(size_t sz);
 

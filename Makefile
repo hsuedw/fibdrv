@@ -28,6 +28,15 @@ unload:
 client: client.c
 	$(CC) -o $@ $^
 
+it_time: client
+	./client $(PWD) it_fib.time it_rd.time
+
+fd_time: client
+	./client $(PWD) fd_fib.time fd_rd.time
+
+plot:
+	gnuplot fibdrv_perf.gp
+
 PRINTF = env printf
 PASS_COLOR = \e[32;01m
 NO_COLOR = \e[0m

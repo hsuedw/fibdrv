@@ -14,7 +14,7 @@
 #define FIB_OUTPUT_LEN (256 * sizeof(uint32_t) * 2 + 1)
 #define FIB_TIME_LEN (sizeof(uint64_t) * 2 + 1)
 #define FIB_LOWER_BOUND (0)
-#define FIB_UPPER_BOUND (11000)
+#define FIB_UPPER_BOUND (23000)
 #define TMP_BUF_LEN (40960)
 
 int main(int argc, char **argv)
