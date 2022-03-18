@@ -22,26 +22,22 @@ MODULE_VERSION("0.1");
 static DEFINE_MUTEX(fib_mutex);
 static NUM_TYPE fib_input;
 static ktime_t kt;
+bignum *answer;
 
-static ssize_t fib_time_cost(ssize_t (*fib_algo)(NUM_TYPE, char *),
-                             NUM_TYPE k,
-                             char *buf)
+static void fib_time_cost(void (*fib_algo)(NUM_TYPE), NUM_TYPE k)
 {
     kt = ktime_get();
-    ssize_t buf_len = fib_algo(k, buf);
+    fib_algo(k);
     kt = ktime_sub(ktime_get(), kt);
-
-    return buf_len;
 }
 
 #if FIBONACCI_FAST_DOUBLING
-static ssize_t fib_fast_doubling(NUM_TYPE k, char *buf)
+static void fib_fast_doubling(NUM_TYPE k)
 {
     uint64_t h = 0;
     for (uint64_t i = k; i; ++h, i >>= 1)
         ;
 
-    ssize_t len;
     bignum *a = bignum_create(BIGNUM_SZ);
     bignum *b = bignum_create(BIGNUM_SZ);
     bignum *c = bignum_create(BIGNUM_SZ);
@@ -73,7 +69,9 @@ static ssize_t fib_fast_doubling(NUM_TYPE k, char *buf)
             bignum_cpy(b, d);
         }
     }
-    len = bignum_to_string(a, buf);
+    // len = bignum_to_string(a, buf);
+    answer = bignum_create(BIGNUM_SZ);
+    bignum_cpy(answer, a);
 
     bignum_destroy(a);
     bignum_destroy(b);
@@ -81,19 +79,18 @@ static ssize_t fib_fast_doubling(NUM_TYPE k, char *buf)
     bignum_destroy(d);
     bignum_destroy(tmp1);
     bignum_destroy(tmp2);
-
-    return len;
 }
 
 #else
-static ssize_t fib_sequence(NUM_TYPE k, char *buf)
+static void fib_sequence(NUM_TYPE k)
 {
-    ssize_t len;
     if (k < 2) {
         bignum *bn = bignum_create(BIGNUM_SZ);
         bn->num[0] = (NUM_TYPE) k;
-        len = bignum_to_string(bn, buf);
-        return len;
+        // len = bignum_to_string(bn, buf);
+        answer = bignum_create(BIGNUM_SZ);
+        bignum_cpy(answer, bn);
+        return;
     }
 
     bignum *fk = bignum_create(BIGNUM_SZ);
@@ -109,13 +106,13 @@ static ssize_t fib_sequence(NUM_TYPE k, char *buf)
         bignum_cpy(fk2, fk1);
         bignum_cpy(fk1, fk);
     }
-    len = bignum_to_string(fk, buf);
+    // len = bignum_to_string(fk, buf);
+    answer = bignum_create(BIGNUM_SZ);
+    bignum_cpy(answer, fk);
 
     bignum_destroy(fk);
     bignum_destroy(fk1);
     bignum_destroy(fk2);
-
-    return len;
 }
 #endif
 
@@ -137,6 +134,12 @@ static ssize_t fib_input_store(struct kobject *kobj,
     if (ret < 0)
         return ret;
 
+#if FIBONACCI_FAST_DOUBLING
+    fib_time_cost(fib_fast_doubling, fib_input);
+#else
+    fib_time_cost(fib_sequence, fib_input);
+#endif
+
     return count;
 }
 
@@ -152,11 +155,10 @@ static ssize_t fib_output_show(struct kobject *kobj,
                                struct kobj_attribute *attr,
                                char *buf)
 {
-#if FIBONACCI_FAST_DOUBLING
-    return fib_time_cost(fib_fast_doubling, fib_input, buf);
-#else
-    return fib_time_cost(fib_sequence, fib_input, buf);
-#endif
+    ssize_t len = bignum_to_string(answer, buf);
+    bignum_destroy(answer);
+
+    return len;
 }
 
 /* Sysfs attributes cannot be world-writable. */

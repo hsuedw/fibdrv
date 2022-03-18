@@ -36,6 +36,7 @@ fd_time: client
 
 plot:
 	gnuplot fibdrv_perf.gp
+	gnuplot rd_perf.gp
 
 PRINTF = env printf
 PASS_COLOR = \e[32;01m
