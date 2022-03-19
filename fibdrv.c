@@ -22,28 +22,24 @@ MODULE_VERSION("0.1");
 static DEFINE_MUTEX(fib_mutex);
 static NUM_TYPE fib_input;
 static ktime_t kt;
-bignum *answer;
+static bignum *answer;
+static void (*fib_algo)(NUM_TYPE);
 
-static void fib_time_cost(void (*fib_algo)(NUM_TYPE), NUM_TYPE k)
-{
-    kt = ktime_get();
-    fib_algo(k);
-    kt = ktime_sub(ktime_get(), kt);
-}
-
-#if FIBONACCI_FAST_DOUBLING
 static void fib_fast_doubling(NUM_TYPE k)
 {
-    uint64_t h = 0;
-    for (uint64_t i = k; i; ++h, i >>= 1)
-        ;
-
     bignum *a = bignum_create(BIGNUM_SZ);
     bignum *b = bignum_create(BIGNUM_SZ);
     bignum *c = bignum_create(BIGNUM_SZ);
     bignum *d = bignum_create(BIGNUM_SZ);
     bignum *tmp1 = bignum_create(BIGNUM_SZ);
     bignum *tmp2 = bignum_create(BIGNUM_SZ);
+
+    // Performanc measure strat.
+    kt = ktime_get();
+
+    uint64_t h = 0;
+    for (uint64_t i = k; i; ++h, i >>= 1)
+        ;
 
     a->num[0] = 0;  // base case, F(0) = 0
     b->num[0] = 1;  // base case, F(1) = 1
@@ -73,6 +69,9 @@ static void fib_fast_doubling(NUM_TYPE k)
     answer = bignum_create(BIGNUM_SZ);
     bignum_cpy(answer, a);
 
+    // Performanc measure stop.
+    kt = ktime_sub(ktime_get(), kt);
+
     bignum_destroy(a);
     bignum_destroy(b);
     bignum_destroy(c);
@@ -81,21 +80,32 @@ static void fib_fast_doubling(NUM_TYPE k)
     bignum_destroy(tmp2);
 }
 
-#else
 static void fib_sequence(NUM_TYPE k)
 {
     if (k < 2) {
         bignum *bn = bignum_create(BIGNUM_SZ);
+
+        // Performanc measure strat.
+        kt = ktime_get();
+
         bn->num[0] = (NUM_TYPE) k;
         // len = bignum_to_string(bn, buf);
         answer = bignum_create(BIGNUM_SZ);
         bignum_cpy(answer, bn);
+
+        // Performanc measure stop.
+        kt = ktime_sub(ktime_get(), kt);
+
+        bignum_destroy(bn);
         return;
     }
 
     bignum *fk = bignum_create(BIGNUM_SZ);
     bignum *fk1 = bignum_create(BIGNUM_SZ);
     bignum *fk2 = bignum_create(BIGNUM_SZ);
+
+    // Performanc measure strat.
+    kt = ktime_get();
 
     // base cases
     fk1->num[0] = 1;
@@ -110,11 +120,13 @@ static void fib_sequence(NUM_TYPE k)
     answer = bignum_create(BIGNUM_SZ);
     bignum_cpy(answer, fk);
 
+    // Performanc measure stop.
+    kt = ktime_sub(ktime_get(), kt);
+
     bignum_destroy(fk);
     bignum_destroy(fk1);
     bignum_destroy(fk2);
 }
-#endif
 
 static ssize_t fib_input_show(struct kobject *kobj,
                               struct kobj_attribute *attr,
@@ -134,11 +146,7 @@ static ssize_t fib_input_store(struct kobject *kobj,
     if (ret < 0)
         return ret;
 
-#if FIBONACCI_FAST_DOUBLING
-    fib_time_cost(fib_fast_doubling, fib_input);
-#else
-    fib_time_cost(fib_sequence, fib_input);
-#endif
+    fib_algo(fib_input);
 
     return count;
 }
@@ -177,13 +185,54 @@ static ssize_t fib_time_show(struct kobject *kobj,
 static struct kobj_attribute fib_time_attribute =
     __ATTR(time, S_IRUSR | S_IRGRP, fib_time_show, NULL);
 
+static ssize_t fib_algo_show(struct kobject *kobj,
+                             struct kobj_attribute *attr,
+                             char *buf)
+{
+    if (fib_algo == fib_sequence)
+        return snprintf(buf, 11, "%s\n", "iteration");
+
+    // fib_algo == fib_fast_doubling
+    return snprintf(buf, 15, "%s\n", "fast-doubling");
+}
+
+static ssize_t fib_algo_store(struct kobject *kobj,
+                              struct kobj_attribute *attr,
+                              const char *buf,
+                              size_t count)
+{
+    if (strncmp(buf, "iteration", 9) == 0) {
+        /* Set the algorithm to be iteration. */
+        pr_info("%s: Set the algorithm to be iteration.\n", KBUILD_MODNAME);
+        fib_algo = fib_sequence;
+    } else if (strncmp(buf, "fast-doubling", 13) == 0) {
+        /* Set the algorithm to be fast-doubling. */
+        pr_info("%s: Set the algorithm to be fast-doubling.\n", KBUILD_MODNAME);
+        fib_algo = fib_fast_doubling;
+    } else {
+        pr_info("%s: %s is not support.\n", KBUILD_MODNAME, buf);
+        pr_info("%s: Set the algorithm to be fast-doubling.\n", KBUILD_MODNAME);
+        fib_algo = fib_fast_doubling;
+    }
+    return strlen(buf);
+}
+
+/* Sysfs attributes cannot be world-writable. */
+static struct kobj_attribute fib_algo_attribute =
+    __ATTR(algo,
+           S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
+           fib_algo_show,
+           fib_algo_store);
+
 /*
  * Create a group of attributes so that we can create and destroy them all
  * at once.
  */
 static struct attribute *attrs[] = {
-    &fib_input_attribute.attr, &fib_output_attribute.attr,
+    &fib_input_attribute.attr,
+    &fib_output_attribute.attr,
     &fib_time_attribute.attr,
+    &fib_algo_attribute.attr,
     NULL, /* need to NULL terminate the list of attributes */
 };
 
@@ -204,6 +253,11 @@ static int __init init_fib_dev(void)
     int retval;
 
     mutex_init(&fib_mutex);
+
+    /* The default algorithm for calculating a
+     * Fibonacci number is fast doubling.
+     */
+    fib_algo = fib_fast_doubling;
 
     /*
      * Create a kobject with the name of "fibonacci",
