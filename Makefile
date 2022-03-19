@@ -28,15 +28,25 @@ unload:
 client: client.c
 	$(CC) -o $@ $^
 
-it_time: client
+set_env:
+	# This rule must be run as root
+	# Suppress address space layout randomization (ASLR)
+	sudo sh -c "echo 0 > /proc/sys/kernel/randomize_va_space"
+	sudo sh performance.sh
+	# For Intel CPU, disable turbo mode
+	sudo sh -c "echo 1 > /sys/devices/system/cpu/intel_pstate/no_turbo"
+
+it_time: client set_env
 	# This rule must be run as root
 	echo "iteration" > /sys/kernel/fibonacci/algo
-	./client $(PWD) it_fib.time it_rd.time
+	# Bind the executable to CPU 0.
+	taskset -c 0 ./client $(PWD) it_fib.time it_rd.time
 
-fd_time: client
+fd_time: client set_env
 	# This rule must be run as root
 	echo "fast-doubling" > /sys/kernel/fibonacci/algo
-	./client $(PWD) fd_fib.time fd_rd.time
+	# Bind the executable to CPU 0.
+	taskset -c 0 ./client $(PWD) fd_fib.time fd_rd.time
 
 plot: fd_time it_time
 	# This rule must be run as root
