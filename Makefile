@@ -27,6 +27,25 @@ unload:
 client: client.c
 	$(CC) -o $@ $^
 
+it_time: client
+	# This rule must be run as root
+	echo "iteration" > /sys/kernel/fibonacci/algo
+	./client $(PWD) it_fib.time it_rd.time
+
+fd_time: client
+	# This rule must be run as root
+	echo "fast-doubling" > /sys/kernel/fibonacci/algo
+	./client $(PWD) fd_fib.time fd_rd.time
+
+plot: fd_time it_time
+	# This rule must be run as root
+	gnuplot fibdrv_perf.gp
+	gnuplot rd_perf.gp
+
+plot_clean:
+	# This rule must be run as root
+	sudo rm -rf *.time *.png
+
 PRINTF = env printf
 PASS_COLOR = \e[32;01m
 NO_COLOR = \e[0m

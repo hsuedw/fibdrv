@@ -12,6 +12,10 @@ MODULE_AUTHOR("National Cheng Kung University, Taiwan");
 MODULE_DESCRIPTION("Fibonacci engine driver");
 MODULE_VERSION("0.1");
 
+static long long answer;
+static ktime_t kt;
+static long long (*fib_algo)(long long);
+
 #define DEV_FIBONACCI_NAME "fibonacci"
 
 /* MAX_LENGTH is set to 92 because
@@ -21,10 +25,65 @@ MODULE_VERSION("0.1");
 
 static DEFINE_MUTEX(fib_mutex);
 
+static long long fib_fast_doubling(long long n)
+{
+    // reference:
+    // https://chunminchang.github.io/blog/post/calculating-fibonacci-numbers-by-fast-doubling
+
+    // Performanc measure strat.
+    kt = ktime_get();
+
+    unsigned int h = 0;
+    for (unsigned int i = n; i; ++h, i >>= 1)
+        ;
+
+    long long a = 0;  // F(0) = 0
+    long long b = 1;  // F(1) = 1
+
+    // There is only one `1` in the bits of `mask`.
+    // The `1`'s position is same as the highest bit of
+    // n(mask = 2^(h-1) at first), and it will be shifted
+    // right iteratively to do `AND` operation with `n`
+    // to check `n_j` is odd or even, where n_j is defined below.
+    for (unsigned int mask = 1 << (h - 1); mask; mask >>= 1) {  // Run h times!
+        // Let j = h-i (looping from i = 1 to i = h), n_j = floor(n / 2^j) = n
+        // >> j (n_j = n when j = 0), k = floor(n_j / 2), then a = F(k), b =
+        // F(k+1) now.
+        long long c = a * (2 * b - a);  // F(2k) = F(k) * [ 2 * F(k+1) – F(k) ]
+        long long d = a * a + b * b;    // F(2k+1) = F(k)^2 + F(k+1)^2
+
+        if (mask & n) {
+            // n_j is odd: k = (n_j-1)/2 => n_j = 2k + 1
+            a = d;      //   F(n_j) = F(2k + 1)
+            b = c + d;  //   F(n_j + 1) = F(2k + 2) = F(2k) + F(2k + 1)
+        } else {
+            // n_j is even: k = n_j/2 => n_j = 2k
+            a = c;  //   F(n_j) = F(2k)
+            b = d;  //   F(n_j + 1) = F(2k + 1)
+        }
+    }
+    // Performanc measure stop.
+    kt = ktime_sub(ktime_get(), kt);
+
+    return a;
+}
+
 static long long fib_sequence(long long k)
 {
-    if (k < 2)
-        return k;
+    if (k < 2) {
+        // Performanc measure strat.
+        kt = ktime_get();
+
+        long long ret = k;
+
+        // Performanc measure stop.
+        kt = ktime_sub(ktime_get(), kt);
+
+        return ret;
+    }
+
+    // Performanc measure strat.
+    kt = ktime_get();
 
     long long fk = -1, fk_2 = 0, fk_1 = 1;
     for (int i = 2; i <= k; i++) {
@@ -32,6 +91,9 @@ static long long fib_sequence(long long k)
         fk_2 = fk_1;
         fk_1 = fk;
     }
+
+    // Performanc measure stop.
+    kt = ktime_sub(ktime_get(), kt);
 
     return fk;
 }
@@ -42,7 +104,7 @@ static ssize_t fib_input_show(struct kobject *kobj,
                               struct kobj_attribute *attr,
                               char *buf)
 {
-    return snprintf(buf, 4, "%d\n", debug_fib_input);
+    return snprintf(buf, 4096, "%d\n", debug_fib_input);
 }
 
 static ssize_t fib_input_store(struct kobject *kobj,
@@ -55,6 +117,8 @@ static ssize_t fib_input_store(struct kobject *kobj,
     ret = kstrtoint(buf, 10, &debug_fib_input);
     if (ret < 0)
         return ret;
+
+    answer = fib_algo(debug_fib_input);
 
     return count;
 }
@@ -71,8 +135,7 @@ static ssize_t fib_output_show(struct kobject *kobj,
                                struct kobj_attribute *attr,
                                char *buf)
 {
-    long long fk = fib_sequence(debug_fib_input);
-    return snprintf(buf, 21, "%lld\n", fk);
+    return snprintf(buf, 4096, "%lld\n", answer);
 }
 
 /* Sysfs attributes cannot be world-writable. */
@@ -83,20 +146,62 @@ static ssize_t fib_time_show(struct kobject *kobj,
                              struct kobj_attribute *attr,
                              char *buf)
 {
-    return snprintf(buf, 1, "%d\n", 0);
+    return snprintf(buf, 4096, "%llu\n", ktime_to_ns(kt));
 }
 
 /* Sysfs attributes cannot be world-writable. */
 static struct kobj_attribute fib_time_attribute =
     __ATTR(time, S_IRUSR | S_IRGRP, fib_time_show, NULL);
 
+
+static ssize_t fib_algo_show(struct kobject *kobj,
+                             struct kobj_attribute *attr,
+                             char *buf)
+{
+    if (fib_algo == fib_sequence)
+        return snprintf(buf, 11, "%s\n", "iteration");
+
+    // fib_algo == fib_fast_doubling
+    return snprintf(buf, 15, "%s\n", "fast-doubling");
+}
+
+static ssize_t fib_algo_store(struct kobject *kobj,
+                              struct kobj_attribute *attr,
+                              const char *buf,
+                              size_t count)
+{
+    if (strncmp(buf, "iteration", 9) == 0) {
+        /* Set the algorithm to be iteration. */
+        pr_info("%s: Set the algorithm to be iteration.\n", KBUILD_MODNAME);
+        fib_algo = fib_sequence;
+    } else if (strncmp(buf, "fast-doubling", 13) == 0) {
+        /* Set the algorithm to be fast-doubling. */
+        pr_info("%s: Set the algorithm to be fast-doubling.\n", KBUILD_MODNAME);
+        fib_algo = fib_fast_doubling;
+    } else {
+        pr_info("%s: %s is not support.\n", KBUILD_MODNAME, buf);
+        pr_info("%s: Set the algorithm to be fast-doubling.\n", KBUILD_MODNAME);
+        fib_algo = fib_fast_doubling;
+    }
+    return strlen(buf);
+}
+
+/* Sysfs attributes cannot be world-writable. */
+static struct kobj_attribute fib_algo_attribute =
+    __ATTR(algo,
+           S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP,
+           fib_algo_show,
+           fib_algo_store);
+
 /*
  * Create a group of attributes so that we can create and destroy them all
  * at once.
  */
 static struct attribute *attrs[] = {
-    &fib_input_attribute.attr, &fib_output_attribute.attr,
+    &fib_input_attribute.attr,
+    &fib_output_attribute.attr,
     &fib_time_attribute.attr,
+    &fib_algo_attribute.attr,
     NULL, /* need to NULL terminate the list of attributes */
 };
 
@@ -117,6 +222,11 @@ static int __init init_fib_dev(void)
     int retval;
 
     mutex_init(&fib_mutex);
+
+    /* The default algorithm for calculating a
+     * Fibonacci number is fast doubling.
+     */
+    fib_algo = fib_fast_doubling;
 
     /*
      * Create a kobject with the name of "fibonacci",
