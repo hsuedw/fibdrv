@@ -38,12 +38,14 @@ set_env:
 it_time: client set_env
 	# This rule must be run as root
 	echo "iteration" > /sys/kernel/fibonacci/algo
-	./client $(PWD) it_fib.time it_rd.time
+	# Bind the executable to CPU 0.
+	taskset -c 0 ./client $(PWD) it_fib.time it_rd.time
 
 fd_time: client set_env
 	# This rule must be run as root
 	echo "fast-doubling" > /sys/kernel/fibonacci/algo
-	./client $(PWD) fd_fib.time fd_rd.time
+	# Bind the executable to CPU 0.
+	taskset -c 0 ./client $(PWD) fd_fib.time fd_rd.time
 
 plot: fd_time it_time
 	# This rule must be run as root
