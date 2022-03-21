@@ -30,38 +30,39 @@ static long long fib_fast_doubling(long long n)
     // reference:
     // https://chunminchang.github.io/blog/post/calculating-fibonacci-numbers-by-fast-doubling
 
+    if (n <= 1) {
+        // base case:
+        //   F(0) = 0
+        //   F(1) = 1
+
+        // Performanc measure strat.
+        kt = ktime_get();
+
+        int ret = n;
+
+        // Performanc measure stop.
+        kt = ktime_sub(ktime_get(), kt);
+
+        return ret;
+    }
+
     // Performanc measure strat.
     kt = ktime_get();
 
-    unsigned int h = 0;
-    for (unsigned int i = n; i; ++h, i >>= 1)
-        ;
+    long long a = 0, b = 1;
 
-    long long a = 0;  // F(0) = 0
-    long long b = 1;  // F(1) = 1
-
-    // There is only one `1` in the bits of `mask`.
-    // The `1`'s position is same as the highest bit of
-    // n(mask = 2^(h-1) at first), and it will be shifted
-    // right iteratively to do `AND` operation with `n`
-    // to check `n_j` is odd or even, where n_j is defined below.
-    for (unsigned int mask = 1 << (h - 1); mask; mask >>= 1) {  // Run h times!
-        // Let j = h-i (looping from i = 1 to i = h), n_j = floor(n / 2^j) = n
-        // >> j (n_j = n when j = 0), k = floor(n_j / 2), then a = F(k), b =
-        // F(k+1) now.
-        long long c = a * (2 * b - a);  // F(2k) = F(k) * [ 2 * F(k+1) – F(k) ]
-        long long d = a * a + b * b;    // F(2k+1) = F(k)^2 + F(k+1)^2
-
-        if (mask & n) {
-            // n_j is odd: k = (n_j-1)/2 => n_j = 2k + 1
-            a = d;      //   F(n_j) = F(2k + 1)
-            b = c + d;  //   F(n_j + 1) = F(2k + 2) = F(2k) + F(2k + 1)
+    for (unsigned int k = 1U << 31; k; k >>= 1) {
+        long long k1 = a * (2 * b - a);  // F(2k) = F(k)[2F(k+1) - F(k)]
+        long long k2 = a * a + b * b;    // F(2k+1) = F(k)^2 + F(k+1)^2
+        if (n & k) {
+            a = k2;       // F(2k+1)
+            b = k1 + k2;  // F(2k+2)
         } else {
-            // n_j is even: k = n_j/2 => n_j = 2k
-            a = c;  //   F(n_j) = F(2k)
-            b = d;  //   F(n_j + 1) = F(2k + 1)
+            a = k1;  // F(2k)
+            b = k2;  // F(2k+1)
         }
     }
+
     // Performanc measure stop.
     kt = ktime_sub(ktime_get(), kt);
 
