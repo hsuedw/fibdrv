@@ -25,9 +25,24 @@ static ktime_t kt;
 static bignum *answer;
 static void (*fib_algo)(NUM_TYPE);
 
-static void fib_fast_doubling(NUM_TYPE k)
+static void fib_fast_doubling_clz(NUM_TYPE k)
 {
+    if (k <= 1) {
+        answer = bignum_create(BIGNUM_SZ);
+
+        // Performanc measure strat.
+        kt = ktime_get();
+
+        answer->num[0] = k;
+
+        // Performanc measure stop.
+        kt = ktime_sub(ktime_get(), kt);
+
+        return;
+    }
+
     bignum *a = bignum_create(BIGNUM_SZ);
+    answer = a;
     bignum *b = bignum_create(BIGNUM_SZ);
     bignum *c = bignum_create(BIGNUM_SZ);
     bignum *d = bignum_create(BIGNUM_SZ);
@@ -37,17 +52,12 @@ static void fib_fast_doubling(NUM_TYPE k)
     // Performanc measure strat.
     kt = ktime_get();
 
-    uint64_t h = 0;
-    for (uint64_t i = k; i; ++h, i >>= 1)
-        ;
+    unsigned int mask_len = sizeof(unsigned int) * 8 - 1 - __builtin_clz(k);
 
     a->num[0] = 0;  // base case, F(0) = 0
     b->num[0] = 1;  // base case, F(1) = 1
 
-    bignum_mult(tmp1, a, a);
-    bignum_mult(tmp1, b, b);
-
-    for (int j = h - 1; j >= 0; --j) {
+    for (unsigned int i = 1U << mask_len; i; i >>= 1) {
         bignum_cpy(tmp1, b);
         bignum_lshift(tmp1, 1);     // tmp1 = 2 * F(k+1)
         bignum_sub(tmp2, tmp1, a);  // tmp2 = 2 * F(k+1) - F(k)
@@ -57,7 +67,7 @@ static void fib_fast_doubling(NUM_TYPE k)
         bignum_mult(tmp2, b, b);    // tmp2 = b * b
         bignum_add(d, tmp1, tmp2);  // F(2k+1) = F(k) * F(k) + F(k+1) * F(k+1)
 
-        if ((k >> j) & 1) {
+        if (k & i) {
             bignum_cpy(a, d);
             bignum_add(b, c, d);
         } else {
@@ -65,14 +75,71 @@ static void fib_fast_doubling(NUM_TYPE k)
             bignum_cpy(b, d);
         }
     }
-    // len = bignum_to_string(a, buf);
-    answer = bignum_create(BIGNUM_SZ);
-    bignum_cpy(answer, a);
 
     // Performanc measure stop.
     kt = ktime_sub(ktime_get(), kt);
 
-    bignum_destroy(a);
+    bignum_destroy(b);
+    bignum_destroy(c);
+    bignum_destroy(d);
+    bignum_destroy(tmp1);
+    bignum_destroy(tmp2);
+}
+
+static void fib_fast_doubling_org(NUM_TYPE k)
+{
+    if (k <= 1) {
+        answer = bignum_create(BIGNUM_SZ);
+
+        // Performanc measure strat.
+        kt = ktime_get();
+
+        answer->num[0] = k;
+
+        // Performanc measure stop.
+        kt = ktime_sub(ktime_get(), kt);
+
+        return;
+    }
+
+    bignum *a = bignum_create(BIGNUM_SZ);
+    answer = a;
+    bignum *b = bignum_create(BIGNUM_SZ);
+    bignum *c = bignum_create(BIGNUM_SZ);
+    bignum *d = bignum_create(BIGNUM_SZ);
+    bignum *tmp1 = bignum_create(BIGNUM_SZ);
+    bignum *tmp2 = bignum_create(BIGNUM_SZ);
+
+    // Performanc measure strat.
+    kt = ktime_get();
+
+    unsigned int mask_len = sizeof(unsigned int) * 8 - 1;
+
+    a->num[0] = 0;  // base case, F(0) = 0
+    b->num[0] = 1;  // base case, F(1) = 1
+
+    for (unsigned int i = 1U << mask_len; i; i >>= 1) {
+        bignum_cpy(tmp1, b);
+        bignum_lshift(tmp1, 1);     // tmp1 = 2 * F(k+1)
+        bignum_sub(tmp2, tmp1, a);  // tmp2 = 2 * F(k+1) - F(k)
+        bignum_mult(c, a, tmp2);    // F(2k) = F(k) * [2 * F(k+1) - F(k)]
+
+        bignum_mult(tmp1, a, a);    // tmp1 = a * a
+        bignum_mult(tmp2, b, b);    // tmp2 = b * b
+        bignum_add(d, tmp1, tmp2);  // F(2k+1) = F(k) * F(k) + F(k+1) * F(k+1)
+
+        if (k & i) {
+            bignum_cpy(a, d);
+            bignum_add(b, c, d);
+        } else {
+            bignum_cpy(a, c);
+            bignum_cpy(b, d);
+        }
+    }
+
+    // Performanc measure stop.
+    kt = ktime_sub(ktime_get(), kt);
+
     bignum_destroy(b);
     bignum_destroy(c);
     bignum_destroy(d);
@@ -82,25 +149,21 @@ static void fib_fast_doubling(NUM_TYPE k)
 
 static void fib_sequence(NUM_TYPE k)
 {
-    if (k < 2) {
-        bignum *bn = bignum_create(BIGNUM_SZ);
+    if (k <= 1) {
+        answer = bignum_create(BIGNUM_SZ);
 
         // Performanc measure strat.
         kt = ktime_get();
 
-        bn->num[0] = (NUM_TYPE) k;
-        // len = bignum_to_string(bn, buf);
-        answer = bignum_create(BIGNUM_SZ);
-        bignum_cpy(answer, bn);
+        answer->num[0] = k;
 
         // Performanc measure stop.
         kt = ktime_sub(ktime_get(), kt);
 
-        bignum_destroy(bn);
         return;
     }
 
-    bignum *fk = bignum_create(BIGNUM_SZ);
+    answer = bignum_create(BIGNUM_SZ);
     bignum *fk1 = bignum_create(BIGNUM_SZ);
     bignum *fk2 = bignum_create(BIGNUM_SZ);
 
@@ -112,18 +175,14 @@ static void fib_sequence(NUM_TYPE k)
     fk2->num[0] = 0;
 
     for (int i = 2; i <= k; i++) {
-        bignum_add(fk, fk1, fk2);
+        bignum_add(answer, fk1, fk2);
         bignum_cpy(fk2, fk1);
-        bignum_cpy(fk1, fk);
+        bignum_cpy(fk1, answer);
     }
-    // len = bignum_to_string(fk, buf);
-    answer = bignum_create(BIGNUM_SZ);
-    bignum_cpy(answer, fk);
 
     // Performanc measure stop.
     kt = ktime_sub(ktime_get(), kt);
 
-    bignum_destroy(fk);
     bignum_destroy(fk1);
     bignum_destroy(fk2);
 }
@@ -190,10 +249,12 @@ static ssize_t fib_algo_show(struct kobject *kobj,
                              char *buf)
 {
     if (fib_algo == fib_sequence)
-        return snprintf(buf, 11, "%s\n", "iteration");
+        return snprintf(buf, 13, "%s\n", "iteration");
+    else if (fib_algo == fib_fast_doubling_org)
+        return snprintf(buf, 19, "%s\n", "fast-doubling-org");
 
-    // fib_algo == fib_fast_doubling
-    return snprintf(buf, 15, "%s\n", "fast-doubling");
+    // fib_algo == fib_fast_doubling_clz
+    return snprintf(buf, 19, "%s\n", "fast-doubling-clz");
 }
 
 static ssize_t fib_algo_store(struct kobject *kobj,
@@ -205,14 +266,19 @@ static ssize_t fib_algo_store(struct kobject *kobj,
         /* Set the algorithm to be iteration. */
         pr_info("%s: Set the algorithm to be iteration.\n", KBUILD_MODNAME);
         fib_algo = fib_sequence;
-    } else if (strncmp(buf, "fast-doubling", 13) == 0) {
-        /* Set the algorithm to be fast-doubling. */
+    } else if (strncmp(buf, "fast-doubling-org", 17) == 0) {
+        /* Set the algorithm to be fast-doubling-org. */
         pr_info("%s: Set the algorithm to be fast-doubling.\n", KBUILD_MODNAME);
-        fib_algo = fib_fast_doubling;
+        fib_algo = fib_fast_doubling_org;
+    } else if (strncmp(buf, "fast-doubling-clz", 17) == 0) {
+        /* Set the algorithm to be fast-doubling-clz. */
+        pr_info("%s: Set the algorithm to be fast-doubling-clz.\n",
+                KBUILD_MODNAME);
+        fib_algo = fib_fast_doubling_clz;
     } else {
         pr_info("%s: %s is not support.\n", KBUILD_MODNAME, buf);
         pr_info("%s: Set the algorithm to be fast-doubling.\n", KBUILD_MODNAME);
-        fib_algo = fib_fast_doubling;
+        fib_algo = fib_fast_doubling_org;
     }
     return strlen(buf);
 }
@@ -257,7 +323,7 @@ static int __init init_fib_dev(void)
     /* The default algorithm for calculating a
      * Fibonacci number is fast doubling.
      */
-    fib_algo = fib_fast_doubling;
+    fib_algo = fib_fast_doubling_org;
 
     /*
      * Create a kobject with the name of "fibonacci",
