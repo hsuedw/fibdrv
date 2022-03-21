@@ -25,11 +25,8 @@ static long long (*fib_algo)(long long);
 
 static DEFINE_MUTEX(fib_mutex);
 
-static long long fib_fast_doubling(long long n)
+static long long fib_fast_doubling_clz(long long n)
 {
-    // reference:
-    // https://chunminchang.github.io/blog/post/calculating-fibonacci-numbers-by-fast-doubling
-
     if (n <= 1) {
         // base case:
         //   F(0) = 0
@@ -50,8 +47,52 @@ static long long fib_fast_doubling(long long n)
     kt = ktime_get();
 
     long long a = 0, b = 1;
+    unsigned int mask_len = sizeof(unsigned int) * 8 - 1 - __builtin_clz(n);
 
-    for (unsigned int k = 1U << 31; k; k >>= 1) {
+    for (unsigned int k = 1U << mask_len; k; k >>= 1) {
+        long long k1 = a * (2 * b - a);  // F(2k) = F(k)[2F(k+1) - F(k)]
+        long long k2 = a * a + b * b;    // F(2k+1) = F(k)^2 + F(k+1)^2
+        if (n & k) {
+            a = k2;       // F(2k+1)
+            b = k1 + k2;  // F(2k+2)
+        } else {
+            a = k1;  // F(2k)
+            b = k2;  // F(2k+1)
+        }
+    }
+
+    // Performanc measure stop.
+    kt = ktime_sub(ktime_get(), kt);
+
+    return a;
+}
+
+
+static long long fib_fast_doubling_org(long long n)
+{
+    if (n <= 1) {
+        // base case:
+        //   F(0) = 0
+        //   F(1) = 1
+
+        // Performanc measure strat.
+        kt = ktime_get();
+
+        int ret = n;
+
+        // Performanc measure stop.
+        kt = ktime_sub(ktime_get(), kt);
+
+        return ret;
+    }
+
+    // Performanc measure strat.
+    kt = ktime_get();
+
+    long long a = 0, b = 1;
+    unsigned int mask_len = sizeof(unsigned int) * 8 - 1;
+
+    for (unsigned int k = 1U << mask_len; k; k >>= 1) {
         long long k1 = a * (2 * b - a);  // F(2k) = F(k)[2F(k+1) - F(k)]
         long long k2 = a * a + b * b;    // F(2k+1) = F(k)^2 + F(k+1)^2
         if (n & k) {
@@ -161,9 +202,11 @@ static ssize_t fib_algo_show(struct kobject *kobj,
 {
     if (fib_algo == fib_sequence)
         return snprintf(buf, 11, "%s\n", "iteration");
+    else if (fib_algo == fib_fast_doubling_org)
+        return snprintf(buf, 17, "%s\n", "fast-doubling-org");
 
-    // fib_algo == fib_fast_doubling
-    return snprintf(buf, 15, "%s\n", "fast-doubling");
+    // fib_algo == fib_fast_doubling_clz
+    return snprintf(buf, 17, "%s\n", "fast-doubling-clz");
 }
 
 static ssize_t fib_algo_store(struct kobject *kobj,
@@ -175,14 +218,19 @@ static ssize_t fib_algo_store(struct kobject *kobj,
         /* Set the algorithm to be iteration. */
         pr_info("%s: Set the algorithm to be iteration.\n", KBUILD_MODNAME);
         fib_algo = fib_sequence;
-    } else if (strncmp(buf, "fast-doubling", 13) == 0) {
-        /* Set the algorithm to be fast-doubling. */
+    } else if (strncmp(buf, "fast-doubling-org", 17) == 0) {
+        /* Set the algorithm to be fast-doubling-org. */
         pr_info("%s: Set the algorithm to be fast-doubling.\n", KBUILD_MODNAME);
-        fib_algo = fib_fast_doubling;
+        fib_algo = fib_fast_doubling_org;
+    } else if (strncmp(buf, "fast-doubling-clz", 17) == 0) {
+        /* Set the algorithm to be fast-doubling-clz. */
+        pr_info("%s: Set the algorithm to be fast-doubling-clz.\n",
+                KBUILD_MODNAME);
+        fib_algo = fib_fast_doubling_clz;
     } else {
         pr_info("%s: %s is not support.\n", KBUILD_MODNAME, buf);
         pr_info("%s: Set the algorithm to be fast-doubling.\n", KBUILD_MODNAME);
-        fib_algo = fib_fast_doubling;
+        fib_algo = fib_fast_doubling_org;
     }
     return strlen(buf);
 }
@@ -227,7 +275,7 @@ static int __init init_fib_dev(void)
     /* The default algorithm for calculating a
      * Fibonacci number is fast doubling.
      */
-    fib_algo = fib_fast_doubling;
+    fib_algo = fib_fast_doubling_org;
 
     /*
      * Create a kobject with the name of "fibonacci",

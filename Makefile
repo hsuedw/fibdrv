@@ -43,13 +43,20 @@ it_time: client set_env
 
 fd_time: client set_env
 	# This rule must be run as root
-	echo "fast-doubling" > /sys/kernel/fibonacci/algo
+	echo "fast-doubling-org" > /sys/kernel/fibonacci/algo
 	# Bind the executable to CPU 0.
 	taskset -c 0 ./client $(PWD) fd_fib.time fd_rd.time
 
-plot: fd_time it_time
+fd_clz_time: client set_env
+	# This rule must be run as root
+	echo "fast-doubling-clz" > /sys/kernel/fibonacci/algo
+	# Bind the executable to CPU 0.
+	taskset -c 0 ./client $(PWD) fd_clz_fib.time fd_rd.time
+
+plot: fd_time fd_clz_time it_time 
 	# This rule must be run as root
 	gnuplot fibdrv_perf.gp
+	gnuplot fibdrv_perf2.gp
 	gnuplot rd_perf.gp
 
 plot_clean:
